@@ -4,6 +4,8 @@ A framework-agnostic sphere layout, plus a React SVG component, for
 rendering dense node-link graphs without the "hairball" a force-directed
 layout produces.
 
+![sphere-graph demo — nodes on a sphere with focus edges](docs/sphere-graph-demo.png)
+
 ## Why
 
 Force-directed layouts (d3-force and friends) work well for sparse graphs.
