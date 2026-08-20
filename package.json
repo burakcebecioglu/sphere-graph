@@ -1,0 +1,63 @@
+{
+  "name": "sphere-graph",
+  "version": "0.1.0",
+  "description": "Sphere layout + React SVG viewer for dense node-link graphs, without the force-directed hairball.",
+  "license": "MIT",
+  "author": "Burak Cebecioğlu",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/burakcebecioglu/sphere-graph.git"
+  },
+  "bugs": {
+    "url": "https://github.com/burakcebecioglu/sphere-graph/issues"
+  },
+  "homepage": "https://github.com/burakcebecioglu/sphere-graph#readme",
+  "keywords": [
+    "graph",
+    "knowledge-graph",
+    "3d",
+    "sphere",
+    "react",
+    "svg",
+    "visualization",
+    "network-graph"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/sphere-graph.css"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-css.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  }
+}
