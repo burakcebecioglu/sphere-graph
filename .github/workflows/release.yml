@@ -1,19 +1,10 @@
 # Publishes to npm when a "vX.Y.Z" tag is pushed. Idle until you push a tag.
 #
-# Before the first tag push, this needs one of:
-#   1. npm Trusted Publishing (recommended): on npmjs.com, once the package
-#      name is registered, add this repo + this workflow file as a Trusted
-#      Publisher for "sphere-graph". No secret needed — `npm publish` uses
-#      the OIDC token from `id-token: write` below.
-#   2. A classic token: create an npm Automation token, store it as the
-#      `NPM_TOKEN` repository secret, and add
-#        env:
-#          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-#      to the "Publish" step below (and drop --provenance if so).
+# Requires Trusted Publishing on npmjs.com for this repo + this workflow file
+# (no NPM_TOKEN). Node 24 + current npm are required — older Node/npm report
+# Trusted Publishing failures as a misleading E404 "not in this registry".
 #
-# Either way, the very first publish of a brand-new package name typically
-# has to happen once from a maintainer's machine (`npm publish --access
-# public`) before Trusted Publishing can be configured for it on npmjs.com.
+# Do not re-tag a version that is already on npm; bump package.json first.
 name: Release
 
 on:
@@ -35,8 +26,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          # Node 24 ships npm new enough for OIDC Trusted Publishing.
+          # Avoid registry-url here: it writes an .npmrc that can make npm
+          # prefer token auth over OIDC and fail with a fake E404.
+          node-version: "24"
+
+      - name: Show npm version
+        run: npm --version
 
       - name: Install dependencies
         run: npm ci

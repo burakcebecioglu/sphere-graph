@@ -106,11 +106,10 @@ npm run build  # emits dist/ (ESM + .d.ts + style.css)
 ## Contributing / releasing
 
 CI (`.github/workflows/ci.yml`) typechecks and builds every push and pull
-request. Releasing to npm is a separate, manually-triggered workflow
-(`.github/workflows/release.yml`): pushing a `vX.Y.Z` tag builds the package
-and publishes it. That workflow needs either npm Trusted Publishing
-configured for this repo, or an `NPM_TOKEN` secret, before a tag push will
-successfully publish — see the comments in that file.
+request. Releasing to npm is a separate workflow (`.github/workflows/release.yml`):
+bump `version` in `package.json`, then push a matching `vX.Y.Z` tag — CI
+builds and publishes via npm Trusted Publishing. Do not re-tag a version that
+is already on npm.
 
 ## License
 
