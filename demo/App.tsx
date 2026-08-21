@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SphereGraph,
   type SphereGraphEdge,
   type SphereGraphFocus,
   type SphereGraphNode,
+  type SphereGraphTheme,
 } from "../src/index";
 import "../src/sphere-graph.css";
 
@@ -24,9 +25,39 @@ function makeFakeGraph(count: number): { nodes: SphereGraphNode[]; edges: Sphere
   return { nodes, edges };
 }
 
+function useResolvedDark(theme: SphereGraphTheme): boolean {
+  const [dark, setDark] = useState(() =>
+    theme === "dark"
+      ? true
+      : theme === "light"
+        ? false
+        : typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+
+  useEffect(() => {
+    if (theme === "dark") {
+      setDark(true);
+      return;
+    }
+    if (theme === "light") {
+      setDark(false);
+      return;
+    }
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = () => setDark(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, [theme]);
+
+  return dark;
+}
+
 export default function App() {
   const { nodes, edges } = useMemo(() => makeFakeGraph(40), []);
   const [lastActivated, setLastActivated] = useState<string | null>(null);
+  const [theme, setTheme] = useState<SphereGraphTheme>("system");
+  const dark = useResolvedDark(theme);
 
   function renderDetail(focus: SphereGraphFocus | null) {
     if (!focus) return <p>Hover or click a node.</p>;
@@ -44,17 +75,51 @@ export default function App() {
   }
 
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
+    <div
+      style={{
+        fontFamily: "system-ui, sans-serif",
+        padding: "1.5rem",
+        maxWidth: 1200,
+        margin: "0 auto",
+        minHeight: "100vh",
+        background: dark ? "#000" : "#f5f5f7",
+        color: dark ? "#f5f5f7" : "#1c1c1e",
+      }}
+    >
       <h1>sphere-graph demo</h1>
       <p>
         40 random nodes across two groups, random edges. Drag to orbit, scroll to zoom, click to
         pin, double-click to activate.
       </p>
+      <p style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+        Theme:
+        {(["light", "dark", "system"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTheme(value)}
+            aria-pressed={theme === value}
+            style={{
+              padding: "0.25rem 0.6rem",
+              borderRadius: 6,
+              border: "1px solid currentColor",
+              opacity: theme === value ? 1 : 0.65,
+              fontWeight: theme === value ? 700 : 500,
+              background: "transparent",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            {value}
+          </button>
+        ))}
+      </p>
       {lastActivated && <p>Last activated: {lastActivated}</p>}
       <SphereGraph
         nodes={nodes}
         edges={edges}
-        groupColors={{ left: "#2a9d59", right: "#1a4fd6" }}
+        theme={theme}
+        groupColors={{ left: "#30d158", right: "#0a84ff" }}
         onNodeActivate={(node) => setLastActivated(node.id)}
         renderDetail={renderDetail}
       />

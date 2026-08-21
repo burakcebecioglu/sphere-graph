@@ -1,6 +1,6 @@
 {
   "name": "sphere-graph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sphere layout + React SVG viewer for dense node-link graphs, without the force-directed hairball.",
   "license": "MIT",
   "author": "Burak Cebecioğlu",
