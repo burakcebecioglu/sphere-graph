@@ -48,7 +48,8 @@ function Graph() {
     <SphereGraph
       nodes={nodes}
       edges={edges}
-      groupColors={{ left: "#2a9d59", right: "#1a4fd6" }}
+      theme="system"
+      groupColors={{ left: "#30d158", right: "#0a84ff" }}
       onNodeActivate={(node) => console.log("open", node.id)}
       renderDetail={(focus) =>
         focus ? (
@@ -64,6 +65,21 @@ function Graph() {
 }
 ```
 
+## Theming
+
+Pass `theme="light" | "dark" | "system"` (default `system`). Chrome, canvas, edges, labels, and the detail panel follow that setting. Node fill colors still come from `groupColors`.
+
+For a custom palette, override the `--sg-*` CSS variables on `.sphere-graph` (or a parent):
+
+| Token | Role |
+|---|---|
+| `--sg-surface` / `--sg-surface-hover` | Panels and buttons |
+| `--sg-canvas-inner` / `--sg-canvas-mid` / `--sg-canvas-outer` | SVG radial background |
+| `--sg-orbit` / `--sg-edge` | Guide ring and focus edges |
+| `--sg-node-stroke` / `--sg-node-stroke-focus` | Node outlines |
+| `--sg-label` / `--sg-label-dim` | Label text |
+| `--sg-ink` / `--sg-ink-muted` / `--sg-hairline` | Detail panel text and borders |
+
 ## API
 
 ### `<SphereGraph />`
@@ -74,6 +90,7 @@ function Graph() {
 | `edges` | `SphereGraphEdge[]` | `{ source, target }` |
 | `groupColors` | `Record<string, string>` | Color per `group` value |
 | `defaultColor` | `string` | Fallback color for ungrouped/unmapped nodes |
+| `theme` | `"light" \| "dark" \| "system"` | Appearance (default `system`) |
 | `width` / `height` | `number` | SVG viewBox size (default `1100`×`780`) |
 | `onNodeActivate` | `(node) => void` | Fires on double-click |
 | `onFocusChange` | `(focus \| null) => void` | Fires whenever the hovered/pinned node changes |

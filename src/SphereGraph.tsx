@@ -17,6 +17,9 @@ export interface SphereGraphFocus {
   neighbors: SphereGraphNode[];
 }
 
+/** Appearance of chrome + SVG paints. `system` follows `prefers-color-scheme`. */
+export type SphereGraphTheme = "light" | "dark" | "system";
+
 export interface SphereGraphProps {
   nodes: SphereGraphNode[];
   edges: SphereGraphEdge[];
@@ -26,6 +29,11 @@ export interface SphereGraphProps {
   /** SVG viewBox size. */
   width?: number;
   height?: number;
+  /**
+   * Light / dark chrome and SVG paints. Defaults to `system`.
+   * Host apps can also override `--sg-*` CSS variables for custom palettes.
+   */
+  theme?: SphereGraphTheme;
   /** Fires on double-click — typically "open this node". */
   onNodeActivate?: (node: SphereGraphNode) => void;
   /** Fires whenever the hovered-or-pinned node changes. */
@@ -54,6 +62,7 @@ export function SphereGraph({
   defaultColor = DEFAULT_COLOR,
   width = DEFAULT_WIDTH,
   height = DEFAULT_HEIGHT,
+  theme = "system",
   onNodeActivate,
   onFocusChange,
   renderDetail,
@@ -182,7 +191,10 @@ export function SphereGraph({
   }
 
   return (
-    <div className={["sphere-graph", className].filter(Boolean).join(" ")}>
+    <div
+      className={["sphere-graph", className].filter(Boolean).join(" ")}
+      data-theme={theme}
+    >
       <div className="sphere-graph__toolbar">
         <button type="button" className="sphere-graph__reset" onClick={resetView}>
           Reset view
@@ -199,13 +211,11 @@ export function SphereGraph({
           onPointerCancel={handlePointerUp}
         >
           <ellipse
+            className="sphere-graph__orbit"
             cx={width / 2}
             cy={height / 2}
             rx={Math.min(width, height) * 0.32}
             ry={Math.min(width, height) * 0.32}
-            fill="none"
-            stroke="#e0e0e0"
-            strokeWidth={1}
           />
 
           {visibleEdges.map((edge) => {
@@ -215,13 +225,11 @@ export function SphereGraph({
             return (
               <line
                 key={`${edge.source}->${edge.target}`}
+                className="sphere-graph__edge"
                 x1={a.x}
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke="#6a6a6a"
-                strokeWidth={1.6}
-                opacity={0.85}
               />
             );
           })}
@@ -260,21 +268,24 @@ export function SphereGraph({
                 style={{ cursor: "pointer" }}
               >
                 <circle
+                  className={
+                    isFocus ? "sphere-graph__node sphere-graph__node--focus" : "sphere-graph__node"
+                  }
                   r={isFocus ? radius * 1.2 : radius}
                   fill={color}
                   opacity={opacity}
-                  stroke={isFocus ? "#111" : "#fff"}
-                  strokeWidth={isFocus ? 2.5 : 1.5}
                 />
                 {(isFocus || isNeighbor || !focusId) && (
                   <text
+                    className={
+                      dimmed
+                        ? "sphere-graph__label sphere-graph__label--dim"
+                        : "sphere-graph__label"
+                    }
                     y={radius + 14}
                     textAnchor="middle"
                     fontSize={11}
                     fontWeight={isFocus ? 700 : 500}
-                    fill={dimmed ? "#bbb" : "#222"}
-                    fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-                    style={{ pointerEvents: "none" }}
                   >
                     {node.label}
                   </text>
