@@ -44,7 +44,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-css.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -58,6 +60,7 @@
     "react-dom": "^19.2.8",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vitest": "^3.2.4"
   }
 }
