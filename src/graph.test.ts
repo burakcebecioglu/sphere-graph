@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildAdjacency, computeDegree, edgesForFocus } from "./graph";
+import {
+  buildAdjacency,
+  buildIncoming,
+  buildOutgoing,
+  computeDegree,
+  edgesForFocus,
+  focusLinks,
+  isDirected,
+  neighborsForFocus,
+} from "./graph";
 import type { SphereGraphEdge } from "./types";
 
 describe("computeDegree", () => {
@@ -71,5 +80,71 @@ describe("edgesForFocus", () => {
 
   it("returns an empty array for an unknown id", () => {
     expect(edgesForFocus(edges, "missing")).toEqual([]);
+  });
+});
+
+describe("isDirected", () => {
+  it("returns true only when directed is true", () => {
+    expect(isDirected({ source: "a", target: "b" })).toBe(false);
+    expect(isDirected({ source: "a", target: "b", directed: false })).toBe(false);
+    expect(isDirected({ source: "a", target: "b", directed: true })).toBe(true);
+  });
+});
+
+describe("buildOutgoing", () => {
+  it("lists out-edges for directed edges on source only", () => {
+    const edge: SphereGraphEdge = { source: "a", target: "b", directed: true };
+    const outgoing = buildOutgoing([edge]);
+    expect(outgoing.get("a")).toEqual([edge]);
+    expect(outgoing.has("b")).toBe(false);
+  });
+
+  it("lists undirected edges on both endpoints", () => {
+    const edge: SphereGraphEdge = { source: "a", target: "b" };
+    const outgoing = buildOutgoing([edge]);
+    expect(outgoing.get("a")).toEqual([edge]);
+    expect(outgoing.get("b")).toEqual([edge]);
+  });
+});
+
+describe("buildIncoming", () => {
+  it("lists in-edges for directed edges on target only", () => {
+    const edge: SphereGraphEdge = { source: "a", target: "b", directed: true };
+    const incoming = buildIncoming([edge]);
+    expect(incoming.get("b")).toEqual([edge]);
+    expect(incoming.has("a")).toBe(false);
+  });
+});
+
+describe("focusLinks", () => {
+  it("splits directed edges into outgoing and incoming", () => {
+    const edge: SphereGraphEdge = { source: "a", target: "b", directed: true };
+    expect(focusLinks([edge], "a")).toEqual({ outgoing: [edge], incoming: [] });
+    expect(focusLinks([edge], "b")).toEqual({ outgoing: [], incoming: [edge] });
+  });
+
+  it("treats undirected edges as both outgoing and incoming", () => {
+    const edge: SphereGraphEdge = { source: "a", target: "b" };
+    expect(focusLinks([edge], "a")).toEqual({ outgoing: [edge], incoming: [edge] });
+  });
+});
+
+describe("neighborsForFocus", () => {
+  it("returns neighbor ids respecting direction", () => {
+    const edges: SphereGraphEdge[] = [
+      { source: "a", target: "b", directed: true },
+      { source: "a", target: "c" },
+    ];
+    expect(neighborsForFocus(edges, "a")).toEqual(new Set(["b", "c"]));
+    expect(neighborsForFocus(edges, "b")).toEqual(new Set(["a"]));
+    expect(neighborsForFocus(edges, "c")).toEqual(new Set(["a"]));
+  });
+});
+
+describe("computeDegree with directed edges", () => {
+  it("still counts both endpoints for directed edges", () => {
+    const degree = computeDegree([{ source: "a", target: "b", directed: true }]);
+    expect(degree.get("a")).toBe(1);
+    expect(degree.get("b")).toBe(1);
   });
 });
