@@ -169,13 +169,13 @@ npm run build    # emits dist/ (ESM + .d.ts + style.css)
 The demo includes a 3-chapter book dataset with sequential, reference, and
 cause edges to illustrate typed, directed knowledge graphs on a single sphere.
 
-## Contributing / releasing
+## Contributing
 
-CI (`.github/workflows/ci.yml`) typechecks, tests, and builds every push and
-pull request. Releasing to npm is a separate workflow
-(`.github/workflows/release.yml`): bump `version` in `package.json`, then push
-a matching `vX.Y.Z` tag — CI builds and publishes via npm Trusted Publishing.
-Do not re-tag a version that is already on npm.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch model (`develop` → `main`),
+worktree setup, and release process. CI runs on pushes and PRs to `main` and
+`develop`. npm releases happen when a `vX.Y.Z` tag is pushed to `main`.
+
+Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
