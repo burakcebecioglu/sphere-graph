@@ -20,6 +20,10 @@ export interface SphereGraphNode {
 export interface SphereGraphEdge {
   source: string;
   target: string;
+  /** Semantic edge type, e.g. "sequential" | "reference" | "cause". Free string. */
+  kind?: string;
+  /** When true, adjacency/focus treat source→target as one-way. Default false. */
+  directed?: boolean;
 }
 
 export interface Point3D {

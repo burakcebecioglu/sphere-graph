@@ -4,7 +4,7 @@ A framework-agnostic sphere layout, plus a React SVG component, for
 rendering dense node-link graphs without the "hairball" a force-directed
 layout produces.
 
-![sphere-graph demo — nodes on a sphere with focus edges](docs/sphere-graph-demo.png)
+![sphere-graph demo — 3-chapter book graph with typed directed focus edges and incoming/outgoing detail panel](docs/sphere-graph-demo.png)
 
 ## Why
 
@@ -33,14 +33,15 @@ import { SphereGraph } from "sphere-graph";
 import "sphere-graph/style.css";
 
 const nodes = [
-  { id: "a", label: "A", group: "left" },
-  { id: "b", label: "B", group: "right" },
-  { id: "c", label: "C", group: "right" },
+  { id: "a", label: "Opening", group: "ch1" },
+  { id: "b", label: "Conflict", group: "ch1" },
+  { id: "c", label: "Resolution", group: "ch2" },
 ];
 
 const edges = [
-  { source: "a", target: "b" },
-  { source: "b", target: "c" },
+  { source: "a", target: "b", kind: "sequential", directed: true },
+  { source: "b", target: "c", kind: "cause", directed: true },
+  { source: "c", target: "a", kind: "reference", directed: true },
 ];
 
 function Graph() {
@@ -49,13 +50,15 @@ function Graph() {
       nodes={nodes}
       edges={edges}
       theme="system"
-      groupColors={{ left: "#30d158", right: "#0a84ff" }}
+      groupColors={{ ch1: "#30d158", ch2: "#0a84ff" }}
       onNodeActivate={(node) => console.log("open", node.id)}
       renderDetail={(focus) =>
         focus ? (
-          <p>
-            {focus.node.label} — {focus.neighbors.length} connections
-          </p>
+          <div>
+            <p>{focus.node.label}</p>
+            <p>Outgoing: {focus.outgoing.length}</p>
+            <p>Incoming: {focus.incoming.length}</p>
+          </div>
         ) : (
           <p>Hover a node</p>
         )
@@ -87,11 +90,13 @@ For a custom palette, override the `--sg-*` CSS variables on `.sphere-graph` (or
 | Prop | Type | Description |
 |---|---|---|
 | `nodes` | `SphereGraphNode[]` | `{ id, label, group?, weight? }` |
-| `edges` | `SphereGraphEdge[]` | `{ source, target }` |
+| `edges` | `SphereGraphEdge[]` | `{ source, target, kind?, directed? }` |
 | `groupColors` | `Record<string, string>` | Color per `group` value |
 | `defaultColor` | `string` | Fallback color for ungrouped/unmapped nodes |
 | `theme` | `"light" \| "dark" \| "system"` | Appearance (default `system`) |
 | `width` / `height` | `number` | SVG viewBox size (default `1100`×`780`) |
+| `pinnedId` | `string \| null` | Controlled pinned node (pair with `onPinnedIdChange`) |
+| `onPinnedIdChange` | `(id \| null) => void` | Fires when the user clicks to pin/unpin |
 | `onNodeActivate` | `(node) => void` | Fires on double-click |
 | `onFocusChange` | `(focus \| null) => void` | Fires whenever the hovered/pinned node changes |
 | `renderDetail` | `(focus \| null) => ReactNode` | Renders the side panel; omit to hide it |
@@ -99,10 +104,48 @@ For a custom palette, override the `--sg-*` CSS variables on `.sphere-graph` (or
 Interaction: drag to orbit, scroll to zoom, click a node to pin its focus,
 double-click to activate it.
 
+### Edge metadata
+
+Edges accept optional semantic fields (all backward compatible):
+
+| Field | Type | Description |
+|---|---|---|
+| `kind` | `string` | Free-form type, e.g. `"sequential"`, `"reference"`, `"cause"` |
+| `directed` | `boolean` | When `true`, focus treats `source→target` as one-way (default `false`) |
+
+When a node is focused, edges touching it are styled:
+
+| Condition | Visual |
+|---|---|
+| default / `sequential` | solid line |
+| `kind === "reference"` | dashed line |
+| `directed === true` or `kind === "cause"` | arrow toward `target` |
+
+### `SphereGraphFocus`
+
+When a node is hovered or pinned, `onFocusChange` and `renderDetail` receive:
+
+| Field | Type | Description |
+|---|---|---|
+| `node` | `SphereGraphNode` | The focused node |
+| `neighbors` | `SphereGraphNode[]` | Union of linked nodes (backward compatible) |
+| `outgoing` | `SphereGraphFocusLink[]` | Edges leaving the node (`{ edge, node }`) |
+| `incoming` | `SphereGraphFocusLink[]` | Edges entering the node (`{ edge, node }`) |
+
 ### Layout primitives (no React required)
 
 ```ts
-import { layoutOnSphere, project, computeDegree, buildAdjacency, edgesForFocus } from "sphere-graph";
+import {
+  layoutOnSphere,
+  project,
+  computeDegree,
+  buildAdjacency,
+  buildOutgoing,
+  buildIncoming,
+  focusLinks,
+  neighborsForFocus,
+  edgesForFocus,
+} from "sphere-graph";
 ```
 
 Use these directly to render the graph with your own renderer (canvas,
@@ -110,23 +153,29 @@ WebGL, a different SVG structure, a server-side snapshot, etc).
 
 - `layoutOnSphere(nodes)` — places `{ id, group? }[]` on the unit sphere.
 - `project(nodes, camera)` — rotates + perspective-projects 3D points to 2D, sorted far-to-near.
-- `computeDegree` / `buildAdjacency` / `edgesForFocus` — derive weight, neighbors, and focus edges from a plain edge list.
+- `computeDegree` / `buildAdjacency` — undirected weight and adjacency (unchanged).
+- `buildOutgoing` / `buildIncoming` / `focusLinks` / `neighborsForFocus` — directed focus helpers.
+- `edgesForFocus` — edges to draw for one focused node.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev    # tiny demo playground with fake data (not published)
-npm run build  # emits dist/ (ESM + .d.ts + style.css)
+npm run dev      # demo playground (book graph + random toggle; not published)
+npm test         # vitest unit tests
+npm run build    # emits dist/ (ESM + .d.ts + style.css)
 ```
+
+The demo includes a 3-chapter book dataset with sequential, reference, and
+cause edges to illustrate typed, directed knowledge graphs on a single sphere.
 
 ## Contributing / releasing
 
-CI (`.github/workflows/ci.yml`) typechecks and builds every push and pull
-request. Releasing to npm is a separate workflow (`.github/workflows/release.yml`):
-bump `version` in `package.json`, then push a matching `vX.Y.Z` tag — CI
-builds and publishes via npm Trusted Publishing. Do not re-tag a version that
-is already on npm.
+CI (`.github/workflows/ci.yml`) typechecks, tests, and builds every push and
+pull request. Releasing to npm is a separate workflow
+(`.github/workflows/release.yml`): bump `version` in `package.json`, then push
+a matching `vX.Y.Z` tag — CI builds and publishes via npm Trusted Publishing.
+Do not re-tag a version that is already on npm.
 
 ## License
 

@@ -6,15 +6,22 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { buildAdjacency, computeDegree, edgesForFocus } from "./graph";
+import { computeDegree, edgesForFocus, focusLinks, neighborsForFocus } from "./graph";
 import { layoutOnSphere } from "./layout";
 import { project } from "./project";
 import type { SphereGraphEdge, SphereGraphNode } from "./types";
 
+export interface SphereGraphFocusLink {
+  edge: SphereGraphEdge;
+  node: SphereGraphNode;
+}
+
 export interface SphereGraphFocus {
   node: SphereGraphNode;
-  /** Undirected neighbors of `node`, derived from `edges`. */
+  /** Undirected neighbor nodes (union of incoming + outgoing). Kept for backward compat. */
   neighbors: SphereGraphNode[];
+  outgoing: SphereGraphFocusLink[];
+  incoming: SphereGraphFocusLink[];
 }
 
 /** Appearance of chrome + SVG paints. `system` follows `prefers-color-scheme`. */
@@ -40,6 +47,10 @@ export interface SphereGraphProps {
   onFocusChange?: (focus: SphereGraphFocus | null) => void;
   /** Renders the side panel content for the current focus (or `null` when nothing is focused). */
   renderDetail?: (focus: SphereGraphFocus | null) => ReactNode;
+  /** Controlled pinned node id (click-to-focus). Pair with `onPinnedIdChange`. */
+  pinnedId?: string | null;
+  /** Fires when the user clicks a node to pin/unpin focus. */
+  onPinnedIdChange?: (id: string | null) => void;
   className?: string;
 }
 
@@ -66,18 +77,21 @@ export function SphereGraph({
   onNodeActivate,
   onFocusChange,
   renderDetail,
+  pinnedId: pinnedIdProp,
+  onPinnedIdChange,
   className,
 }: SphereGraphProps) {
   const nodesById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const degree = useMemo(() => computeDegree(edges), [edges]);
-  const adjacency = useMemo(() => buildAdjacency(edges), [edges]);
   const laidOut = useMemo(() => layoutOnSphere(nodes), [nodes]);
 
   const [yaw, setYaw] = useState(0.55);
   const [pitch, setPitch] = useState(-0.25);
   const [distance, setDistance] = useState(3.2);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedInternal, setSelectedInternal] = useState<string | null>(null);
+  const isPinnedControlled = onPinnedIdChange !== undefined;
+  const selected = isPinnedControlled ? (pinnedIdProp ?? null) : selectedInternal;
   const focusId = hovered ?? selected;
 
   const projected = useMemo(
@@ -87,19 +101,33 @@ export function SphereGraph({
   const projectedById = useMemo(() => new Map(projected.map((p) => [p.id, p])), [projected]);
 
   const focusNeighborIds = useMemo(
-    () => (focusId ? adjacency.get(focusId) ?? new Set<string>() : null),
-    [focusId, adjacency],
+    () => (focusId ? neighborsForFocus(edges, focusId) : null),
+    [focusId, edges],
   );
 
   const focus: SphereGraphFocus | null = useMemo(() => {
     if (!focusId) return null;
     const node = nodesById.get(focusId);
     if (!node) return null;
-    const neighbors = [...(focusNeighborIds ?? [])]
+    const { outgoing: outEdges, incoming: inEdges } = focusLinks(edges, focusId);
+    const outgoing = outEdges
+      .map((edge) => {
+        const linked = nodesById.get(edge.target);
+        return linked ? { edge, node: linked } : null;
+      })
+      .filter((link): link is SphereGraphFocusLink => Boolean(link));
+    const incoming = inEdges
+      .map((edge) => {
+        const linked = nodesById.get(edge.source);
+        return linked ? { edge, node: linked } : null;
+      })
+      .filter((link): link is SphereGraphFocusLink => Boolean(link));
+    const neighborIds = neighborsForFocus(edges, focusId);
+    const neighbors = [...neighborIds]
       .map((id) => nodesById.get(id))
       .filter((n): n is SphereGraphNode => Boolean(n));
-    return { node, neighbors };
-  }, [focusId, nodesById, focusNeighborIds]);
+    return { node, neighbors, outgoing, incoming };
+  }, [focusId, nodesById, edges]);
 
   useEffect(() => {
     onFocusChange?.(focus);
@@ -181,6 +209,11 @@ export function SphereGraph({
     if (dragRef.current?.pointerId === e.pointerId) dragRef.current = null;
   }
 
+  function setSelected(id: string | null) {
+    if (isPinnedControlled) onPinnedIdChange?.(id);
+    else setSelectedInternal(id);
+  }
+
   function resetView() {
     setYaw(0.55);
     setPitch(-0.25);
@@ -188,6 +221,13 @@ export function SphereGraph({
     setSelected(null);
     setHovered(null);
     setAutoSpin(true);
+  }
+
+  function edgeClassName(edge: SphereGraphEdge): string {
+    const classes = ["sphere-graph__edge"];
+    if (edge.kind === "reference") classes.push("sphere-graph__edge--reference");
+    if (edge.directed === true || edge.kind === "cause") classes.push("sphere-graph__edge--directed");
+    return classes.join(" ");
   }
 
   return (
@@ -210,6 +250,20 @@ export function SphereGraph({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
         >
+          <defs>
+            <marker
+              id="sg-arrow"
+              markerWidth="8"
+              markerHeight="8"
+              refX="6"
+              refY="4"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L8,4 L0,8 Z" className="sphere-graph__edge-arrow" />
+            </marker>
+          </defs>
+
           <ellipse
             className="sphere-graph__orbit"
             cx={width / 2}
@@ -224,8 +278,8 @@ export function SphereGraph({
             if (!a || !b) return null;
             return (
               <line
-                key={`${edge.source}->${edge.target}`}
-                className="sphere-graph__edge"
+                key={`${edge.source}->${edge.target}:${edge.kind ?? ""}`}
+                className={edgeClassName(edge)}
                 x1={a.x}
                 y1={a.y}
                 x2={b.x}

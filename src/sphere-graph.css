@@ -132,6 +132,19 @@
   opacity: 0.85;
 }
 
+.sphere-graph__edge--reference {
+  stroke: var(--sg-edge-reference, var(--sg-edge));
+  stroke-dasharray: 5 4;
+}
+
+.sphere-graph__edge--directed {
+  marker-end: url(#sg-arrow);
+}
+
+.sphere-graph__edge-arrow {
+  fill: var(--sg-edge);
+}
+
 .sphere-graph__node {
   stroke: var(--sg-node-stroke);
   stroke-width: 1.5;
