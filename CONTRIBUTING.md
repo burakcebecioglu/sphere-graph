@@ -24,7 +24,7 @@ feat/*  ──PR──►  develop  ──PR (release)──►  main  ──tag
 **Rules:**
 
 - Open PRs against **`develop`**, not `main` (except release and hotfix PRs).
-- Do **not** bump `package.json` version on feature branches.
+- Do **not** bump `package.json` version on feature branches (except the release PR merging `develop` → `main`).
 - Do **not** tag or publish from `develop`.
 - v1.0 features land on `develop`; npm releases are **batched**, not per feature.
 
@@ -160,10 +160,18 @@ gh api repos/burakcebecioglu/sphere-graph/branches/main/protection
 gh api repos/burakcebecioglu/sphere-graph/branches/develop/protection
 ```
 
+## API stability (v1.0+)
+
+From **v1.0.0** onward, the public API follows [semver](https://semver.org/):
+
+- **Patch** — bug fixes, no API changes
+- **Minor** — backward-compatible additions (new optional props, new exports)
+- **Major** — breaking changes (reserved for v2.0 multi-sphere and similar)
+
+Breaking changes require a major version bump and a CHANGELOG migration note.
+
 ## Roadmap
 
-Features targeting **v1.0** (search, filters, responsive embed, a11y, etc.)
-integrate on **`develop`**. **Multi-sphere layout** is planned for a future major
-release after v1.0.
+**v1.0** (search, filters, responsive embed, a11y) is complete on **`main`**. **Multi-sphere layout** is planned for **v2.0**.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for release history.
