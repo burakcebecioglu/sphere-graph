@@ -4,7 +4,7 @@ A framework-agnostic sphere layout, plus a React SVG component, for
 rendering dense node-link graphs without the "hairball" a force-directed
 layout produces.
 
-![sphere-graph demo — 3-chapter book graph with typed directed focus edges and incoming/outgoing detail panel](docs/sphere-graph-demo.png)
+![sphere-graph demo — book graph with search, filters, pinned focus node, and detail panel](docs/sphere-graph-demo.png)
 
 ## Why
 
@@ -33,14 +33,14 @@ import { SphereGraph } from "sphere-graph";
 import "sphere-graph/style.css";
 
 const nodes = [
-  { id: "a", label: "Opening", group: "ch1" },
+  { id: "a", label: "Opening", group: "ch1", description: "First scene", tags: ["narrative"] },
   { id: "b", label: "Conflict", group: "ch1" },
   { id: "c", label: "Resolution", group: "ch2" },
 ];
 
 const edges = [
-  { source: "a", target: "b", kind: "sequential", directed: true },
-  { source: "b", target: "c", kind: "cause", directed: true },
+  { source: "a", target: "b", kind: "sequential", directed: true, weight: 2 },
+  { source: "b", target: "c", kind: "cause", directed: true, weight: 3 },
   { source: "c", target: "a", kind: "reference", directed: true },
 ];
 
@@ -51,6 +51,8 @@ function Graph() {
       edges={edges}
       theme="system"
       groupColors={{ ch1: "#30d158", ch2: "#0a84ff" }}
+      showSearchBar
+      fitParent
       onNodeActivate={(node) => console.log("open", node.id)}
       renderDetail={(focus) =>
         focus ? (
@@ -66,6 +68,15 @@ function Graph() {
     />
   );
 }
+```
+
+For dashboard embeds, give the graph a sized container and pass `fitParent` — it
+resize to fill that box (both width and height):
+
+```tsx
+<div style={{ height: "480px", width: "100%" }}>
+  <SphereGraph nodes={nodes} edges={edges} fitParent />
+</div>
 ```
 
 ## Theming
@@ -89,20 +100,46 @@ For a custom palette, override the `--sg-*` CSS variables on `.sphere-graph` (or
 
 | Prop | Type | Description |
 |---|---|---|
-| `nodes` | `SphereGraphNode[]` | `{ id, label, group?, weight? }` |
-| `edges` | `SphereGraphEdge[]` | `{ source, target, kind?, directed? }` |
+| `nodes` | `SphereGraphNode[]` | `{ id, label, group?, weight?, description?, tags? }` |
+| `edges` | `SphereGraphEdge[]` | `{ source, target, kind?, directed?, weight? }` |
 | `groupColors` | `Record<string, string>` | Color per `group` value |
 | `defaultColor` | `string` | Fallback color for ungrouped/unmapped nodes |
 | `theme` | `"light" \| "dark" \| "system"` | Appearance (default `system`) |
-| `width` / `height` | `number` | SVG viewBox size (default `1100`×`780`) |
+| `width` / `height` | `number` | SVG viewBox size (default `1100`×`780`; ignored when `fitParent`) |
+| `fitParent` | `boolean` | Resize SVG to fill the container (default `false`) |
 | `pinnedId` | `string \| null` | Controlled pinned node (pair with `onPinnedIdChange`) |
+| `initialPinnedId` | `string \| null` | Starting pin on mount (uncontrolled) |
 | `onPinnedIdChange` | `(id \| null) => void` | Fires when the user clicks to pin/unpin |
-| `onNodeActivate` | `(node) => void` | Fires on double-click |
+| `searchQuery` | `string` | Controlled search string |
+| `onSearchQueryChange` | `(query) => void` | Search input changes |
+| `onSearchMatchesChange` | `(matches) => void` | Fires with matching nodes when query changes |
+| `showSearchBar` | `boolean` | Built-in search input in toolbar |
+| `visibleGroups` | `string[]` | Only render nodes in these groups |
+| `visibleEdgeKinds` | `string[]` | On focus, only draw edges whose `kind` is in set |
+| `showSecondHop` | `boolean` | Lightly render neighbors-of-neighbors (default `false`) |
+| `renderNode` / `renderNodeLabel` | hooks | Custom node/label rendering |
+| `onNodeActivate` | `(node) => void` | Fires on double-click or Enter |
 | `onFocusChange` | `(focus \| null) => void` | Fires whenever the hovered/pinned node changes |
 | `renderDetail` | `(focus \| null) => ReactNode` | Renders the side panel; omit to hide it |
+| `className` | `string` | Extra class on root element |
+
+Pass `initialPinnedId` for deep-linking on load, or read a URL param in the host app:
+
+```ts
+import { focusIdFromSearchParam } from "sphere-graph";
+
+const focus = focusIdFromSearchParam(window.location.href);
+<SphereGraph nodes={nodes} edges={edges} initialPinnedId={focus} />
+```
 
 Interaction: drag to orbit, scroll to zoom, click a node to pin its focus,
-double-click to activate it.
+double-click (or Enter) to activate it. Keyboard: Tab cycles nodes, arrow keys
+cycle neighbors, `/` focuses search, Escape clears pin. Search jumps to the
+first match as you type.
+
+Invalid data is handled gracefully: empty graphs show a message; edges
+referencing missing nodes are skipped (dev `console.warn`); duplicate node ids
+are deduplicated (dev warn).
 
 ### Edge metadata
 
@@ -110,8 +147,9 @@ Edges accept optional semantic fields (all backward compatible):
 
 | Field | Type | Description |
 |---|---|---|
-| `kind` | `string` | Free-form type, e.g. `"sequential"`, `"reference"`, `"cause"` |
+| `kind` | `string` | Free-form type, e.g. `"sequential"`, `"reference"`, `"citation"` |
 | `directed` | `boolean` | When `true`, focus treats `source→target` as one-way (default `false`) |
+| `weight` | `number` | Maps to focus-edge stroke width (normalized across the graph) |
 
 When a node is focused, edges touching it are styled:
 
@@ -120,6 +158,7 @@ When a node is focused, edges touching it are styled:
 | default / `sequential` | solid line |
 | `kind === "reference"` | dashed line |
 | `directed === true` or `kind === "cause"` | arrow toward `target` |
+| higher `weight` | thicker stroke |
 
 ### `SphereGraphFocus`
 
@@ -131,6 +170,26 @@ When a node is hovered or pinned, `onFocusChange` and `renderDetail` receive:
 | `neighbors` | `SphereGraphNode[]` | Union of linked nodes (backward compatible) |
 | `outgoing` | `SphereGraphFocusLink[]` | Edges leaving the node (`{ edge, node }`) |
 | `incoming` | `SphereGraphFocusLink[]` | Edges entering the node (`{ edge, node }`) |
+
+### Search and filter helpers
+
+```ts
+import {
+  searchNodes,
+  searchMatchIds,
+  matchScore,
+  filterNodesByGroup,
+  filterEdgesByKind,
+  buildFilteredGraph,
+  sanitizeGraph,
+  computeEdgeWeightRange,
+  edgeStrokeWidth,
+  focusIdFromSearchParam,
+} from "sphere-graph";
+```
+
+Use these in host apps for custom search UI, pre-filtering data, or validating
+imports before passing data to `<SphereGraph />`.
 
 ### Layout primitives (no React required)
 
@@ -145,6 +204,7 @@ import {
   focusLinks,
   neighborsForFocus,
   edgesForFocus,
+  edgesForFocusWithSecondHop,
 } from "sphere-graph";
 ```
 
@@ -155,25 +215,32 @@ WebGL, a different SVG structure, a server-side snapshot, etc).
 - `project(nodes, camera)` — rotates + perspective-projects 3D points to 2D, sorted far-to-near.
 - `computeDegree` / `buildAdjacency` — undirected weight and adjacency (unchanged).
 - `buildOutgoing` / `buildIncoming` / `focusLinks` / `neighborsForFocus` — directed focus helpers.
-- `edgesForFocus` — edges to draw for one focused node.
+- `edgesForFocus` / `edgesForFocusWithSecondHop` — edges to draw for one focused node.
+
+## Examples (demo)
+
+Run `npm run dev` for the local playground with three datasets:
+
+| Dataset | Illustrates |
+|---|---|
+| **book** | Chapter groups, sequential/reference/cause edges, search by scene description |
+| **citations** | Economics paper corpus, citation weights, group/kind filters |
+| **random** | Stress test at ~40 nodes |
 
 ## Local development
 
 ```bash
 npm install
-npm run dev      # demo playground (book graph + random toggle; not published)
-npm test         # vitest unit tests
+npm run dev      # demo playground (not published)
+npm test         # vitest unit + React interaction tests
 npm run build    # emits dist/ (ESM + .d.ts + style.css)
 ```
-
-The demo includes a 3-chapter book dataset with sequential, reference, and
-cause edges to illustrate typed, directed knowledge graphs on a single sphere.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch model (`develop` → `main`),
-worktree setup, and release process. CI runs on pushes and PRs to `main` and
-`develop`. npm releases happen when a `vX.Y.Z` tag is pushed to `main`.
+worktree setup, API stability policy, and release process. CI runs on pushes and
+PRs to `main` and `develop`. npm releases happen when a `vX.Y.Z` tag is pushed to `main`.
 
 Release history: [CHANGELOG.md](CHANGELOG.md).
 

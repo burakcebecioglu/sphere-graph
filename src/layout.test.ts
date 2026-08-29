@@ -110,4 +110,21 @@ describe("layoutOnSphere", () => {
     expect(longitude(beta)).toBeLessThan(Math.PI);
     expect(longitude(alpha)).toBeGreaterThanOrEqual(Math.PI);
   });
+
+  it("does not place nodes from different groups at identical coordinates", () => {
+    const nodes = [
+      { id: "a", label: "A", group: "ch1" },
+      { id: "b", label: "B", group: "ch2" },
+      { id: "c", label: "C", group: "ch3" },
+      { id: "d", label: "D", group: "ch1" },
+      { id: "e", label: "E", group: "ch2" },
+    ];
+    const laidOut = layoutOnSphere(nodes);
+    const keys = new Set<string>();
+    for (const node of laidOut) {
+      const key = `${node.x.toFixed(5)},${node.y.toFixed(5)},${node.z.toFixed(5)}`;
+      expect(keys.has(key)).toBe(false);
+      keys.add(key);
+    }
+  });
 });

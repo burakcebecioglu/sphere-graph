@@ -28,12 +28,22 @@ export function fibonacciSphere(n: number): Point3D[] {
  * group its own wedge so groups stay visually separable while every node
  * still keeps a real, measurable gap from its neighbors.
  */
-export function fibonacciWedge(n: number, start: number, width: number): Point3D[] {
+export function fibonacciWedge(
+  n: number,
+  start: number,
+  width: number,
+  options?: { avoidPoles?: boolean },
+): Point3D[] {
   if (n <= 0) return [];
   const points: Point3D[] = [];
   const denom = Math.max(n - 1, 1);
+  // When multiple groups each get a wedge, don't place a node on the poles:
+  // at y=±1 the radius is 0 so longitude is ignored and groups collide.
+  const polePad = options?.avoidPoles ? 0.12 : 0;
+  const yTop = 1 - polePad;
+  const yBottom = -1 + polePad;
   for (let i = 0; i < n; i++) {
-    const y = 1 - (i / denom) * 2;
+    const y = yTop - (i / denom) * (yTop - yBottom);
     const r = Math.sqrt(Math.max(0, 1 - y * y));
     const jitter = ((i * GOLDEN_ANGLE) % width + width) % width;
     const theta = start + jitter;
@@ -73,7 +83,9 @@ export function layoutOnSphere<T extends { id: string; group?: string }>(
     const points =
       groupCount === 1
         ? fibonacciSphere(groupNodes.length)
-        : fibonacciWedge(groupNodes.length, groupIndex * wedgeWidth, wedgeWidth);
+        : fibonacciWedge(groupNodes.length, groupIndex * wedgeWidth, wedgeWidth, {
+            avoidPoles: true,
+          });
     groupNodes.forEach((node, i) => {
       out.push({ ...node, ...points[i]! });
     });

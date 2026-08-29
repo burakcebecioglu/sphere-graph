@@ -15,6 +15,10 @@ export interface SphereGraphNode {
    * connected nodes render larger.
    */
   weight?: number;
+  /** Longer text for detail panels and search. */
+  description?: string;
+  /** Optional facets, e.g. ["empirics", "theory"]. Searchable. */
+  tags?: string[];
 }
 
 export interface SphereGraphEdge {
@@ -24,6 +28,8 @@ export interface SphereGraphEdge {
   kind?: string;
   /** When true, adjacency/focus treat source→target as one-way. Default false. */
   directed?: boolean;
+  /** Optional magnitude (trade volume, citation strength). Affects focus-edge stroke width. */
+  weight?: number;
 }
 
 export interface Point3D {

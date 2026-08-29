@@ -5,6 +5,7 @@ import {
   buildOutgoing,
   computeDegree,
   edgesForFocus,
+  edgesForFocusWithSecondHop,
   focusLinks,
   isDirected,
   neighborsForFocus,
@@ -146,5 +147,16 @@ describe("computeDegree with directed edges", () => {
     const degree = computeDegree([{ source: "a", target: "b", directed: true }]);
     expect(degree.get("a")).toBe(1);
     expect(degree.get("b")).toBe(1);
+  });
+});
+
+describe("edgesForFocusWithSecondHop", () => {
+  it("includes second-hop edges not in first hop", () => {
+    const edges: SphereGraphEdge[] = [
+      { source: "a", target: "b" },
+      { source: "b", target: "c" },
+    ];
+    const result = edgesForFocusWithSecondHop(edges, "a");
+    expect(result.some(({ edge, hop }) => hop === 2 && edge.target === "c")).toBe(true);
   });
 });
