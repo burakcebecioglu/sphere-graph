@@ -97,3 +97,25 @@ export function edgesForFocus(
   }
   return result;
 }
+
+/** First- and second-hop edges for focus (second hop marked via duplicate pass). */
+export function edgesForFocusWithSecondHop(
+  edges: readonly SphereGraphEdge[],
+  id: string,
+): { edge: SphereGraphEdge; hop: 1 | 2 }[] {
+  const first = edgesForFocus(edges, id);
+  const firstIds = new Set(first.flatMap((e) => [e.source, e.target]));
+  const seen = new Set(first.map((e) => `${e.source}->${e.target}:${e.kind ?? ""}`));
+  const out: { edge: SphereGraphEdge; hop: 1 | 2 }[] = first.map((edge) => ({ edge, hop: 1 as const }));
+
+  for (const neighborId of firstIds) {
+    if (neighborId === id) continue;
+    for (const edge of edgesForFocus(edges, neighborId)) {
+      const key = `${edge.source}->${edge.target}:${edge.kind ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ edge, hop: 2 });
+    }
+  }
+  return out;
+}
