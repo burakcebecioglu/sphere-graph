@@ -58,10 +58,19 @@ function group(index: number): (typeof GROUPS)[number] {
 }
 
 function makeLabel(index: number, g: (typeof GROUPS)[number]): string {
-  const subject = SUBJECTS[g][index % SUBJECTS[g].length]!;
-  const detail = DETAILS[g][(index * 7) % DETAILS[g].length]!;
-  const qualifier = QUALIFIERS[(index * 13) % QUALIFIERS.length]!;
-  return `${subject} ${detail} ${qualifier}`;
+  // Mixed-radix decomposition of the node's position within its group, so
+  // every node in a 30-node group gets a distinct (subject, detail,
+  // qualifier) combination instead of a handful of combos repeating.
+  const subjects = SUBJECTS[g];
+  const details = DETAILS[g];
+  const positionInGroup = Math.floor(index / GROUPS.length);
+  let remainder = positionInGroup;
+  const subjectIdx = remainder % subjects.length;
+  remainder = Math.floor(remainder / subjects.length);
+  const detailIdx = remainder % details.length;
+  remainder = Math.floor(remainder / details.length);
+  const qualifierIdx = remainder % QUALIFIERS.length;
+  return `${subjects[subjectIdx]} ${details[detailIdx]} ${QUALIFIERS[qualifierIdx]}`;
 }
 
 const DENSE_NODE_COUNT = 150;
