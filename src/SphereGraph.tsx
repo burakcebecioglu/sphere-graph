@@ -462,7 +462,7 @@ export function SphereGraph({
               else if (focusId && !isFocus && !isNeighbor) opacity = 0.2;
               const color = groupColors[node.group ?? ""] ?? defaultColor;
               const showLbl =
-                (nodes.length <= LABEL_LOD_NODE_THRESHOLD || p.scale >= 0.65 || isFocus) &&
+                (nodes.length <= LABEL_LOD_NODE_THRESHOLD || isFocus || isNeighbor) &&
                 (isFocus || isNeighbor || !focusId);
               const nodeHandlers = {
                 onPointerEnter: (e: ReactPointerEvent) => {
