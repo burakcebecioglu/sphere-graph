@@ -80,6 +80,16 @@ const NODE_BASE_RADIUS = 12;
 const FOCAL_LENGTH = 800;
 const LABEL_Y_OFFSET = 14;
 
+// Opacity for non-focus/non-neighbor nodes (focus mode) and non-matching
+// nodes (search mode). 0.2/0.12 read fine over the light theme's
+// near-white canvas, but the same values over the dark theme's near-black
+// canvas (--sg-canvas-* in sphere-graph.css) are nearly indistinguishable
+// from the background — the same fraction of a much darker composite is a
+// much smaller perceptual difference. Dark keeps a higher floor so the
+// rest of the sphere stays visible as structure once something is focused.
+const NEIGHBOR_DIM_OPACITY = { light: 0.2, dark: 0.5 };
+const SEARCH_DIM_OPACITY = { light: 0.12, dark: 0.3 };
+
 function nodeRadius(weight: number, scale: number): number {
   return (NODE_BASE_RADIUS + Math.min(weight, 10) * 0.7) * Math.min(Math.max(scale, 0.55), 1.4);
 }
@@ -299,6 +309,18 @@ export function SphereGraph({
     return () => media.removeEventListener("change", sync);
   }, []);
 
+  // Resolves "system" the same way the CSS does (prefers-color-scheme), so
+  // dim opacity can be picked per actual rendered theme, not just per prop.
+  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = () => setSystemPrefersDark(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  const isDark = theme === "dark" || (theme === "system" && systemPrefersDark);
+
   useEffect(() => {
     if (!autoSpin || reduceMotion) return;
     let raf = 0;
@@ -512,8 +534,11 @@ export function SphereGraph({
               const weight = node.weight ?? degree.get(node.id) ?? 0;
               const radius = nodeRadius(weight, p.scale);
               let opacity = Math.min(1, 0.55 + p.scale * 0.4);
-              if (isSearching && !isSearchMatch && !isFocus && !isNeighbor) opacity = 0.12;
-              else if (focusId && !isFocus && !isNeighbor) opacity = 0.2;
+              if (isSearching && !isSearchMatch && !isFocus && !isNeighbor) {
+                opacity = isDark ? SEARCH_DIM_OPACITY.dark : SEARCH_DIM_OPACITY.light;
+              } else if (focusId && !isFocus && !isNeighbor) {
+                opacity = isDark ? NEIGHBOR_DIM_OPACITY.dark : NEIGHBOR_DIM_OPACITY.light;
+              }
               const color = groupColors[node.group ?? ""] ?? defaultColor;
               const showLbl = renderedLabelIds.has(node.id) && (isFocus || isNeighbor || !focusId);
               const nodeHandlers = {
