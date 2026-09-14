@@ -134,20 +134,40 @@ describe("SphereGraph", () => {
     expect(onNodeActivate).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
   });
 
-  describe("label LOD gate (SG-9)", () => {
+  describe("label LOD (SG-9 fix + SG-10 screen-space budget)", () => {
     const manyNodes: SphereGraphNode[] = Array.from({ length: 90 }, (_, i) => ({
       id: `n${i}`,
       label: `Node ${i}`,
       group: "g1",
     }));
 
-    it("thins labels past the node-count threshold regardless of zoom/scale", () => {
+    it("keeps all labels visible when they comfortably fit the budget, regardless of node count", () => {
+      // Regression guard for SG-9: node count alone must not gate labels —
+      // 90 short labels easily fit the default viewport's budget.
       const { container } = render(<SphereGraph nodes={manyNodes} edges={[]} />);
       const labels = container.querySelectorAll(".sphere-graph__label");
-      expect(labels.length).toBe(0);
+      expect(labels.length).toBe(manyNodes.length);
     });
 
-    it("still shows the focused node's label past the threshold", () => {
+    it("thins labels to a viewport-derived budget when they don't fit, regardless of node count", () => {
+      // Regression guard for SG-10: this is the actual "text mat" bug —
+      // many long labels in a small viewport must thin, not the old
+      // fixed-80-node threshold.
+      const longLabel = "X".repeat(70);
+      const wideNodes: SphereGraphNode[] = Array.from({ length: 50 }, (_, i) => ({
+        id: `w${i}`,
+        label: longLabel,
+        group: "g1",
+      }));
+      const { container } = render(
+        <SphereGraph nodes={wideNodes} edges={[]} width={300} height={200} />,
+      );
+      const labels = container.querySelectorAll(".sphere-graph__label");
+      expect(labels.length).toBeGreaterThan(0);
+      expect(labels.length).toBeLessThan(wideNodes.length);
+    });
+
+    it("still shows the focused node's label regardless of budget", () => {
       const { container } = render(
         <SphereGraph nodes={manyNodes} edges={[]} initialPinnedId="n0" />,
       );
@@ -156,13 +176,13 @@ describe("SphereGraph", () => {
       expect(labels[0]?.textContent).toBe("Node 0");
     });
 
-    it("shows every label under the threshold", () => {
+    it("shows every label for a small graph", () => {
       const { container } = render(<SphereGraph nodes={nodes} edges={edges} />);
       const labels = container.querySelectorAll(".sphere-graph__label");
       expect(labels.length).toBe(nodes.length);
     });
 
-    it("still shows the focused node's neighbor labels past the threshold", () => {
+    it("still shows the focused node's neighbor labels regardless of budget", () => {
       const manyEdges: SphereGraphEdge[] = [{ source: "n0", target: "n1", kind: "reference" }];
       const { container } = render(
         <SphereGraph nodes={manyNodes} edges={manyEdges} initialPinnedId="n0" />,
@@ -173,7 +193,7 @@ describe("SphereGraph", () => {
       expect(labels.sort()).toEqual(["Node 0", "Node 1"]);
     });
 
-    it("hides non-neighbor labels past the threshold even with a focus set", () => {
+    it("hides non-neighbor labels even with a focus set", () => {
       const manyEdges: SphereGraphEdge[] = [{ source: "n0", target: "n1", kind: "reference" }];
       const { container } = render(
         <SphereGraph nodes={manyNodes} edges={manyEdges} initialPinnedId="n0" />,

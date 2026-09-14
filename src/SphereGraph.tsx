@@ -16,6 +16,7 @@ import {
   focusLinks,
   neighborsForFocus,
 } from "./graph";
+import { selectVisibleLabels, type LabelCandidate } from "./labels";
 import { layoutOnSphere } from "./layout";
 import { project } from "./project";
 import { sanitizeGraph } from "./sanitize";
@@ -72,7 +73,6 @@ const DEFAULT_HEIGHT = 780;
 const DEFAULT_COLOR = "#6b7280";
 const NODE_BASE_RADIUS = 12;
 const FOCAL_LENGTH = 800;
-const LABEL_LOD_NODE_THRESHOLD = 80;
 
 type ProjectedNode = Projected2D & { source: SphereGraphNode };
 
@@ -162,6 +162,29 @@ export function SphereGraph({
     () => (focusId ? neighborsForFocus(edges, focusId) : null),
     [focusId, edges],
   );
+
+  const visibleLabelIds = useMemo(() => {
+    // projected is sorted far-to-near; walk it in reverse so near-first
+    // candidates win priority ties for free (see selectVisibleLabels).
+    const candidates: LabelCandidate[] = [];
+    for (let i = projected.length - 1; i >= 0; i--) {
+      const p = projected[i]!;
+      const node = p.source;
+      if (!nodeMatchesGroupFilter(node, visibleGroups)) continue;
+      candidates.push({
+        id: node.id,
+        label: node.label,
+        isFocus: focusId === node.id,
+        isNeighbor: focusNeighborIds?.has(node.id) ?? false,
+        // True only for a genuine match while searching — unlike the
+        // same-named local below (used for opacity), which defaults true
+        // when not searching at all.
+        isSearchMatch: isSearching && searchMatches.has(node.id),
+        weight: node.weight ?? degree.get(node.id) ?? 0,
+      });
+    }
+    return selectVisibleLabels(candidates, width, height);
+  }, [projected, visibleGroups, focusId, focusNeighborIds, isSearching, searchMatches, degree, width, height]);
 
   const focus: SphereGraphFocus | null = useMemo(() => {
     if (!focusId) return null;
@@ -461,9 +484,7 @@ export function SphereGraph({
               if (isSearching && !isSearchMatch && !isFocus && !isNeighbor) opacity = 0.12;
               else if (focusId && !isFocus && !isNeighbor) opacity = 0.2;
               const color = groupColors[node.group ?? ""] ?? defaultColor;
-              const showLbl =
-                (nodes.length <= LABEL_LOD_NODE_THRESHOLD || isFocus || isNeighbor) &&
-                (isFocus || isNeighbor || !focusId);
+              const showLbl = visibleLabelIds.has(node.id) && (isFocus || isNeighbor || !focusId);
               const nodeHandlers = {
                 onPointerEnter: (e: ReactPointerEvent) => {
                   e.stopPropagation();
