@@ -208,5 +208,24 @@ describe("SphereGraph", () => {
       );
       expect(labelTexts).not.toContain("Node 2");
     });
+
+    it("SG-15 regression: renders far fewer than 150 labels for 150 realistic sentence-length nodes", () => {
+      // End-to-end: at this scale, with real-world label lengths (not
+      // "N7"), every label rendering unconditionally is exactly the
+      // unreadable text mat the whole SG-9/SG-10/SG-11 chain exists to fix.
+      // This exercises budget + collision together; labels.test.ts has a
+      // budget-only version of this same scale, isolated from collision,
+      // since the two stages land in a similar range here and could
+      // otherwise mask a regression in either one alone.
+      const denseNodes: SphereGraphNode[] = Array.from({ length: 150 }, (_, i) => ({
+        id: `dense-${i}`,
+        label: `A fairly long, realistic sentence-length label for node number ${i}`,
+        group: `g${i % 5}`,
+      }));
+      const { container } = render(<SphereGraph nodes={denseNodes} edges={[]} />);
+      const labels = container.querySelectorAll(".sphere-graph__label");
+      expect(labels.length).toBeGreaterThan(0);
+      expect(labels.length).toBeLessThan(75);
+    });
   });
 });
