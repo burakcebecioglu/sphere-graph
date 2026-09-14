@@ -22,13 +22,21 @@ import {
   citationGroupLabels,
   citationNodes,
 } from "./citationGraph";
+import {
+  denseEdgeKinds,
+  denseEdges,
+  denseGroupColors,
+  denseGroupLabels,
+  denseNodes,
+} from "./denseGraph";
 
-type Dataset = "book" | "citations" | "random";
+type Dataset = "book" | "citations" | "random" | "dense";
 
 const DATASET_LABELS: Record<Dataset, string> = {
   book: "Book",
   citations: "Citations",
   random: "Random (40)",
+  dense: "Dense (150)",
 };
 
 function makeFakeGraph(count: number): { nodes: SphereGraphNode[]; edges: SphereGraphEdge[] } {
@@ -98,7 +106,7 @@ function Segmented<T extends string>({
             aria-pressed={value === option}
             onClick={() => onChange(option)}
           >
-            {option === "book" || option === "citations" || option === "random"
+            {option === "book" || option === "citations" || option === "random" || option === "dense"
               ? DATASET_LABELS[option as Dataset]
               : option}
           </button>
@@ -148,23 +156,45 @@ export default function App() {
   const dark = useResolvedDark(theme);
 
   const nodes =
-    dataset === "book" ? bookNodes : dataset === "citations" ? citationNodes : randomGraph.nodes;
+    dataset === "book"
+      ? bookNodes
+      : dataset === "citations"
+        ? citationNodes
+        : dataset === "dense"
+          ? denseNodes
+          : randomGraph.nodes;
   const edges =
-    dataset === "book" ? bookEdges : dataset === "citations" ? citationEdges : randomGraph.edges;
+    dataset === "book"
+      ? bookEdges
+      : dataset === "citations"
+        ? citationEdges
+        : dataset === "dense"
+          ? denseEdges
+          : randomGraph.edges;
   const groupColors =
     dataset === "book"
       ? bookGroupColors
       : dataset === "citations"
         ? citationGroupColors
-        : { left: "#30d158", right: "#0a84ff" };
+        : dataset === "dense"
+          ? denseGroupColors
+          : { left: "#30d158", right: "#0a84ff" };
   const groupLabels =
-    dataset === "book" ? bookGroupLabels : dataset === "citations" ? citationGroupLabels : null;
+    dataset === "book"
+      ? bookGroupLabels
+      : dataset === "citations"
+        ? citationGroupLabels
+        : dataset === "dense"
+          ? denseGroupLabels
+          : null;
   const edgeKindOptions =
     dataset === "book"
       ? [...bookEdgeKinds]
       : dataset === "citations"
         ? ["citation", "reference"]
-        : null;
+        : dataset === "dense"
+          ? [...denseEdgeKinds]
+          : null;
 
   useEffect(() => {
     setPinnedId(null);
@@ -284,7 +314,7 @@ export default function App() {
             <Segmented
               label="Dataset"
               value={dataset}
-              options={["book", "citations", "random"] as const}
+              options={["book", "citations", "random", "dense"] as const}
               onChange={setDataset}
             />
             <Segmented
