@@ -4,7 +4,7 @@ A framework-agnostic sphere layout, plus a React SVG component, for
 rendering dense node-link graphs without the "hairball" a force-directed
 layout produces.
 
-![sphere-graph demo — book graph with search, filters, pinned focus node, and detail panel](docs/sphere-graph-demo.png)
+![sphere-graph dark theme — a 90-node task-dependency graph, focused on one task, showing its depends-on links and legible, non-overlapping labels](docs/sphere-graph-tasks-dark.png)
 
 ## Why
 
@@ -219,13 +219,20 @@ WebGL, a different SVG structure, a server-side snapshot, etc).
 
 ## Examples (demo)
 
-Run `npm run dev` for the local playground with three datasets:
+Run `npm run dev` for the local playground with five datasets:
 
 | Dataset | Illustrates |
 |---|---|
 | **book** | Chapter groups, sequential/reference/cause edges, search by scene description |
 | **citations** | Economics paper corpus, citation weights, group/kind filters |
 | **random** | Stress test at ~40 nodes |
+| **dense** | 150 nodes with sentence-length labels — a legibility stress test |
+| **tasks** | 90-node Jira-style task board (6 epics, directed `depends-on` edges) — pictured at the top |
+
+At higher node counts (try **dense** or **tasks**), labels are chosen by a
+screen-space budget — how many legibly fit the viewport — and thinned
+further to reject any that would overlap, rather than a fixed
+per-node-count cutoff. Focus and its neighbors are always exempt.
 
 ## Local development
 
