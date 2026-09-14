@@ -87,6 +87,20 @@ describe("selectVisibleLabels", () => {
     expect(admitted.size).toBeLessThan(candidates.length);
   });
 
+  it("SG-15 regression: thins a 150-candidate, realistic-label-length set purely on budget, isolated from collision rejection", () => {
+    // selectVisibleLabels alone (no position/collision involved) must
+    // already thin at this scale — this is what makes the original SG-9
+    // bug (budget never fired) distinguishable from SG-11's collision
+    // rejection, which happens to land in a similar range at the
+    // SphereGraph-integration level and could otherwise mask a broken
+    // budget stage.
+    const label = "A fairly long, realistic sentence-length label for node number 0";
+    const candidates = Array.from({ length: 150 }, (_, i) => candidate({ id: `dense-${i}`, label }));
+    const admitted = selectVisibleLabels(candidates, 1100, 780);
+    expect(admitted.size).toBeGreaterThan(0);
+    expect(admitted.size).toBeLessThan(140);
+  });
+
   it("always admits focus and neighbors even when the budget is 0", () => {
     const longLabel = "X".repeat(500);
     const candidates = [
@@ -228,5 +242,17 @@ describe("rejectOverlappingLabels", () => {
     const admitted = rejectOverlappingLabels(candidates);
     expect(admitted.has("focus")).toBe(true);
     expect(admitted.has("stranger")).toBe(false);
+  });
+
+  it("breaks a same-priority overlap tie by input order, so near-first candidates win", () => {
+    // Same weight, same search-match state — the only thing left to break
+    // the tie is position in the input array (near-first, per orderByPriority).
+    const candidates = [
+      positioned({ id: "near", label: "hello world", centerX: 0, centerY: 0 }),
+      positioned({ id: "far", label: "hello world", centerX: 0, centerY: 0 }),
+    ];
+    const admitted = rejectOverlappingLabels(candidates);
+    expect(admitted.has("near")).toBe(true);
+    expect(admitted.has("far")).toBe(false);
   });
 });
