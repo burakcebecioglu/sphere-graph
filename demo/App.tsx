@@ -29,14 +29,16 @@ import {
   denseGroupLabels,
   denseNodes,
 } from "./denseGraph";
+import { taskEdgeKinds, taskEdges, taskGroupColors, taskGroupLabels, taskNodes } from "./taskGraph";
 
-type Dataset = "book" | "citations" | "random" | "dense";
+type Dataset = "book" | "citations" | "random" | "dense" | "tasks";
 
 const DATASET_LABELS: Record<Dataset, string> = {
   book: "Book",
   citations: "Citations",
   random: "Random (40)",
   dense: "Dense (150)",
+  tasks: "Tasks (90)",
 };
 
 function makeFakeGraph(count: number): { nodes: SphereGraphNode[]; edges: SphereGraphEdge[] } {
@@ -106,9 +108,7 @@ function Segmented<T extends string>({
             aria-pressed={value === option}
             onClick={() => onChange(option)}
           >
-            {option === "book" || option === "citations" || option === "random" || option === "dense"
-              ? DATASET_LABELS[option as Dataset]
-              : option}
+            {option in DATASET_LABELS ? DATASET_LABELS[option as Dataset] : option}
           </button>
         ))}
       </div>
@@ -155,46 +155,53 @@ export default function App() {
   const [visibleEdgeKinds, setVisibleEdgeKinds] = useState<string[] | undefined>(undefined);
   const dark = useResolvedDark(theme);
 
-  const nodes =
-    dataset === "book"
-      ? bookNodes
-      : dataset === "citations"
-        ? citationNodes
-        : dataset === "dense"
-          ? denseNodes
-          : randomGraph.nodes;
-  const edges =
-    dataset === "book"
-      ? bookEdges
-      : dataset === "citations"
-        ? citationEdges
-        : dataset === "dense"
-          ? denseEdges
-          : randomGraph.edges;
-  const groupColors =
-    dataset === "book"
-      ? bookGroupColors
-      : dataset === "citations"
-        ? citationGroupColors
-        : dataset === "dense"
-          ? denseGroupColors
-          : { left: "#30d158", right: "#0a84ff" };
-  const groupLabels =
-    dataset === "book"
-      ? bookGroupLabels
-      : dataset === "citations"
-        ? citationGroupLabels
-        : dataset === "dense"
-          ? denseGroupLabels
-          : null;
-  const edgeKindOptions =
-    dataset === "book"
-      ? [...bookEdgeKinds]
-      : dataset === "citations"
-        ? ["citation", "reference"]
-        : dataset === "dense"
-          ? [...denseEdgeKinds]
-          : null;
+  interface DatasetConfig {
+    nodes: SphereGraphNode[];
+    edges: SphereGraphEdge[];
+    groupColors: Record<string, string>;
+    groupLabels: Record<string, string> | null;
+    edgeKindOptions: string[] | null;
+  }
+
+  const datasetConfig: Record<Dataset, DatasetConfig> = {
+    book: {
+      nodes: bookNodes,
+      edges: bookEdges,
+      groupColors: bookGroupColors,
+      groupLabels: bookGroupLabels,
+      edgeKindOptions: [...bookEdgeKinds],
+    },
+    citations: {
+      nodes: citationNodes,
+      edges: citationEdges,
+      groupColors: citationGroupColors,
+      groupLabels: citationGroupLabels,
+      edgeKindOptions: ["citation", "reference"],
+    },
+    dense: {
+      nodes: denseNodes,
+      edges: denseEdges,
+      groupColors: denseGroupColors,
+      groupLabels: denseGroupLabels,
+      edgeKindOptions: [...denseEdgeKinds],
+    },
+    tasks: {
+      nodes: taskNodes,
+      edges: taskEdges,
+      groupColors: taskGroupColors,
+      groupLabels: taskGroupLabels,
+      edgeKindOptions: [...taskEdgeKinds],
+    },
+    random: {
+      nodes: randomGraph.nodes,
+      edges: randomGraph.edges,
+      groupColors: { left: "#30d158", right: "#0a84ff" },
+      groupLabels: null,
+      edgeKindOptions: null,
+    },
+  };
+
+  const { nodes, edges, groupColors, groupLabels, edgeKindOptions } = datasetConfig[dataset];
 
   useEffect(() => {
     setPinnedId(null);
@@ -314,7 +321,7 @@ export default function App() {
             <Segmented
               label="Dataset"
               value={dataset}
-              options={["book", "citations", "random", "dense"] as const}
+              options={["book", "citations", "random", "dense", "tasks"] as const}
               onChange={setDataset}
             />
             <Segmented
