@@ -16,7 +16,12 @@ import {
   focusLinks,
   neighborsForFocus,
 } from "./graph";
-import { selectVisibleLabels, type LabelCandidate } from "./labels";
+import {
+  rejectOverlappingLabels,
+  selectVisibleLabels,
+  type LabelCandidate,
+  type PositionedLabelCandidate,
+} from "./labels";
 import { layoutOnSphere } from "./layout";
 import { project } from "./project";
 import { sanitizeGraph } from "./sanitize";
@@ -73,6 +78,11 @@ const DEFAULT_HEIGHT = 780;
 const DEFAULT_COLOR = "#6b7280";
 const NODE_BASE_RADIUS = 12;
 const FOCAL_LENGTH = 800;
+const LABEL_Y_OFFSET = 14;
+
+function nodeRadius(weight: number, scale: number): number {
+  return (NODE_BASE_RADIUS + Math.min(weight, 10) * 0.7) * Math.min(Math.max(scale, 0.55), 1.4);
+}
 
 type ProjectedNode = Projected2D & { source: SphereGraphNode };
 
@@ -163,15 +173,15 @@ export function SphereGraph({
     [focusId, edges],
   );
 
-  const visibleLabelIds = useMemo(() => {
+  const labelCandidates = useMemo(() => {
     // projected is sorted far-to-near; walk it in reverse so near-first
-    // candidates win priority ties for free (see selectVisibleLabels).
-    const candidates: LabelCandidate[] = [];
+    // candidates win priority ties for free (see labels.ts's orderByPriority).
+    const list: LabelCandidate[] = [];
     for (let i = projected.length - 1; i >= 0; i--) {
       const p = projected[i]!;
       const node = p.source;
       if (!nodeMatchesGroupFilter(node, visibleGroups)) continue;
-      candidates.push({
+      list.push({
         id: node.id,
         label: node.label,
         isFocus: focusId === node.id,
@@ -183,8 +193,29 @@ export function SphereGraph({
         weight: node.weight ?? degree.get(node.id) ?? 0,
       });
     }
-    return selectVisibleLabels(candidates, width, height);
-  }, [projected, visibleGroups, focusId, focusNeighborIds, isSearching, searchMatches, degree, width, height]);
+    return list;
+  }, [projected, visibleGroups, focusId, focusNeighborIds, isSearching, searchMatches, degree]);
+
+  const visibleLabelIds = useMemo(
+    () => selectVisibleLabels(labelCandidates, width, height),
+    [labelCandidates, width, height],
+  );
+
+  // Budget alone doesn't stop two admitted labels from overlapping on
+  // screen — a second, position-aware pass rejects collisions among the
+  // budget-admitted set, same priority order, same focus/neighbor exemption.
+  const renderedLabelIds = useMemo(() => {
+    if (visibleLabelIds.size === 0) return visibleLabelIds;
+    const positioned: PositionedLabelCandidate[] = [];
+    for (const candidate of labelCandidates) {
+      if (!visibleLabelIds.has(candidate.id)) continue;
+      const p = projectedById.get(candidate.id);
+      if (!p) continue;
+      const radius = nodeRadius(candidate.weight, p.scale);
+      positioned.push({ ...candidate, centerX: p.x, centerY: p.y + radius + LABEL_Y_OFFSET });
+    }
+    return rejectOverlappingLabels(positioned);
+  }, [labelCandidates, visibleLabelIds, projectedById]);
 
   const focus: SphereGraphFocus | null = useMemo(() => {
     if (!focusId) return null;
@@ -479,12 +510,12 @@ export function SphereGraph({
               const isNeighbor = focusNeighborIds?.has(node.id) ?? false;
               const isSearchMatch = !isSearching || searchMatches.has(node.id);
               const weight = node.weight ?? degree.get(node.id) ?? 0;
-              const radius = (NODE_BASE_RADIUS + Math.min(weight, 10) * 0.7) * Math.min(Math.max(p.scale, 0.55), 1.4);
+              const radius = nodeRadius(weight, p.scale);
               let opacity = Math.min(1, 0.55 + p.scale * 0.4);
               if (isSearching && !isSearchMatch && !isFocus && !isNeighbor) opacity = 0.12;
               else if (focusId && !isFocus && !isNeighbor) opacity = 0.2;
               const color = groupColors[node.group ?? ""] ?? defaultColor;
-              const showLbl = visibleLabelIds.has(node.id) && (isFocus || isNeighbor || !focusId);
+              const showLbl = renderedLabelIds.has(node.id) && (isFocus || isNeighbor || !focusId);
               const nodeHandlers = {
                 onPointerEnter: (e: ReactPointerEvent) => {
                   e.stopPropagation();
@@ -530,7 +561,7 @@ export function SphereGraph({
                     (renderNodeLabel ? (
                       renderNodeLabel(node, p)
                     ) : (
-                      <text className="sphere-graph__label" y={radius + 14} textAnchor="middle" fontSize={11} fontWeight={isFocus ? 700 : 500}>
+                      <text className="sphere-graph__label" y={radius + LABEL_Y_OFFSET} textAnchor="middle" fontSize={11} fontWeight={isFocus ? 700 : 500}>
                         {node.label}
                       </text>
                     ))}

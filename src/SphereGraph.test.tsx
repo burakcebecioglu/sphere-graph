@@ -141,12 +141,17 @@ describe("SphereGraph", () => {
       group: "g1",
     }));
 
-    it("keeps all labels visible when they comfortably fit the budget, regardless of node count", () => {
+    it("keeps most labels visible when they comfortably fit the budget, regardless of node count", () => {
       // Regression guard for SG-9: node count alone must not gate labels —
-      // 90 short labels easily fit the default viewport's budget.
+      // 90 short labels easily fit the default viewport's budget. Some are
+      // still rejected by SG-11's collision pass where they genuinely
+      // overlap on screen (70/90 for this exact fixture), so this isn't a
+      // hard 100% — but the upper bound proves collision rejection is
+      // actually active (a no-op regression would hit 90), not just present.
       const { container } = render(<SphereGraph nodes={manyNodes} edges={[]} />);
       const labels = container.querySelectorAll(".sphere-graph__label");
-      expect(labels.length).toBe(manyNodes.length);
+      expect(labels.length).toBeGreaterThan(60);
+      expect(labels.length).toBeLessThan(manyNodes.length);
     });
 
     it("thins labels to a viewport-derived budget when they don't fit, regardless of node count", () => {
