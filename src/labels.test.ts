@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { computeLabelBudget, estimateLabelBox, selectVisibleLabels, type LabelCandidate } from "./labels";
+import {
+  computeLabelBudget,
+  estimateLabelBox,
+  orderByPriority,
+  rejectOverlappingLabels,
+  selectVisibleLabels,
+  type LabelCandidate,
+  type PositionedLabelCandidate,
+} from "./labels";
 
 function candidate(overrides: Partial<LabelCandidate> & { id: string }): LabelCandidate {
   return {
@@ -8,6 +16,17 @@ function candidate(overrides: Partial<LabelCandidate> & { id: string }): LabelCa
     isNeighbor: false,
     isSearchMatch: false,
     weight: 0,
+    ...overrides,
+  };
+}
+
+function positioned(
+  overrides: Partial<PositionedLabelCandidate> & { id: string },
+): PositionedLabelCandidate {
+  return {
+    ...candidate(overrides),
+    centerX: 0,
+    centerY: 0,
     ...overrides,
   };
 }
@@ -82,6 +101,24 @@ describe("selectVisibleLabels", () => {
     expect(admitted.has("stranger")).toBe(false);
   });
 
+  it("counts admitted neighbors against the budget instead of adding on top of it", () => {
+    // Regression guard: a focused node with many neighbors must not let the
+    // total admitted count exceed the viewport budget — neighbors are
+    // exempt from *rejection*, not from *budget accounting*.
+    const longLabel = "X".repeat(80);
+    const neighbors = Array.from({ length: 8 }, (_, i) =>
+      candidate({ id: `neighbor-${i}`, label: longLabel, isNeighbor: true }),
+    );
+    const plain = Array.from({ length: 30 }, (_, i) => candidate({ id: `plain-${i}`, label: longLabel }));
+    const box = estimateLabelBox(longLabel);
+    // Viewport area = 10.5x a single box's area gives a budget of exactly
+    // 10 (floor(10.5) === 10), with margin either side of the
+    // floating-point-exact boundary.
+    const admitted = selectVisibleLabels([...neighbors, ...plain], box.width * 10.5, box.height);
+    expect(admitted.size).toBe(10);
+    neighbors.forEach((n) => expect(admitted.has(n.id)).toBe(true));
+  });
+
   // A viewport of 1.2x a single box's area gives a budget of exactly 1
   // (floor(1.2) === 1) with margin either side of the floating-point-exact
   // boundary, so these tie-break tests aren't sensitive to rounding.
@@ -125,5 +162,71 @@ describe("selectVisibleLabels", () => {
     const admitted = selectVisibleLabels(candidates, width, height);
     expect(admitted.size).toBe(1);
     expect(admitted.has("near")).toBe(true);
+  });
+});
+
+describe("orderByPriority", () => {
+  it("orders focus > neighbor > search match > plain", () => {
+    const ordered = orderByPriority([
+      candidate({ id: "plain" }),
+      candidate({ id: "match", isSearchMatch: true }),
+      candidate({ id: "neighbor", isNeighbor: true }),
+      candidate({ id: "focus", isFocus: true }),
+    ]);
+    expect(ordered.map((c) => c.id)).toEqual(["focus", "neighbor", "match", "plain"]);
+  });
+
+  it("preserves the concrete candidate type (e.g. positioned candidates)", () => {
+    const ordered = orderByPriority([positioned({ id: "a", centerX: 5, centerY: 6 })]);
+    expect(ordered[0]?.centerX).toBe(5);
+    expect(ordered[0]?.centerY).toBe(6);
+  });
+});
+
+describe("rejectOverlappingLabels", () => {
+  it("returns an empty set for no candidates", () => {
+    expect(rejectOverlappingLabels([]).size).toBe(0);
+  });
+
+  it("keeps non-overlapping candidates", () => {
+    const far = 10_000;
+    const candidates = [
+      positioned({ id: "a", label: "alpha", centerX: 0, centerY: 0 }),
+      positioned({ id: "b", label: "beta", centerX: far, centerY: far }),
+    ];
+    const admitted = rejectOverlappingLabels(candidates);
+    expect(admitted.has("a")).toBe(true);
+    expect(admitted.has("b")).toBe(true);
+  });
+
+  it("rejects a lower-priority candidate whose box overlaps a higher-priority one", () => {
+    const candidates = [
+      positioned({ id: "loser", label: "hello", centerX: 1, centerY: 1, weight: 0 }),
+      positioned({ id: "winner", label: "hello", centerX: 0, centerY: 0, weight: 10 }),
+    ];
+    const admitted = rejectOverlappingLabels(candidates);
+    expect(admitted.has("winner")).toBe(true);
+    expect(admitted.has("loser")).toBe(false);
+  });
+
+  it("always admits focus and neighbors even when they overlap a higher-priority box", () => {
+    // Two neighbors stacked exactly on top of each other, and nothing else.
+    const candidates = [
+      positioned({ id: "neighbor-a", label: "hello world", isNeighbor: true, centerX: 0, centerY: 0 }),
+      positioned({ id: "neighbor-b", label: "hello world", isNeighbor: true, centerX: 0, centerY: 0 }),
+    ];
+    const admitted = rejectOverlappingLabels(candidates);
+    expect(admitted.has("neighbor-a")).toBe(true);
+    expect(admitted.has("neighbor-b")).toBe(true);
+  });
+
+  it("still rejects overlapping non-exempt candidates near an exempt one", () => {
+    const candidates = [
+      positioned({ id: "focus", label: "hello world", isFocus: true, centerX: 0, centerY: 0 }),
+      positioned({ id: "stranger", label: "hello world", centerX: 0, centerY: 0 }),
+    ];
+    const admitted = rejectOverlappingLabels(candidates);
+    expect(admitted.has("focus")).toBe(true);
+    expect(admitted.has("stranger")).toBe(false);
   });
 });
