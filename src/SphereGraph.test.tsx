@@ -133,4 +133,55 @@ describe("SphereGraph", () => {
     await user.keyboard("{Enter}");
     expect(onNodeActivate).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
   });
+
+  describe("label LOD gate (SG-9)", () => {
+    const manyNodes: SphereGraphNode[] = Array.from({ length: 90 }, (_, i) => ({
+      id: `n${i}`,
+      label: `Node ${i}`,
+      group: "g1",
+    }));
+
+    it("thins labels past the node-count threshold regardless of zoom/scale", () => {
+      const { container } = render(<SphereGraph nodes={manyNodes} edges={[]} />);
+      const labels = container.querySelectorAll(".sphere-graph__label");
+      expect(labels.length).toBe(0);
+    });
+
+    it("still shows the focused node's label past the threshold", () => {
+      const { container } = render(
+        <SphereGraph nodes={manyNodes} edges={[]} initialPinnedId="n0" />,
+      );
+      const labels = container.querySelectorAll(".sphere-graph__label");
+      expect(labels.length).toBe(1);
+      expect(labels[0]?.textContent).toBe("Node 0");
+    });
+
+    it("shows every label under the threshold", () => {
+      const { container } = render(<SphereGraph nodes={nodes} edges={edges} />);
+      const labels = container.querySelectorAll(".sphere-graph__label");
+      expect(labels.length).toBe(nodes.length);
+    });
+
+    it("still shows the focused node's neighbor labels past the threshold", () => {
+      const manyEdges: SphereGraphEdge[] = [{ source: "n0", target: "n1", kind: "reference" }];
+      const { container } = render(
+        <SphereGraph nodes={manyNodes} edges={manyEdges} initialPinnedId="n0" />,
+      );
+      const labels = Array.from(container.querySelectorAll(".sphere-graph__label")).map(
+        (el) => el.textContent,
+      );
+      expect(labels.sort()).toEqual(["Node 0", "Node 1"]);
+    });
+
+    it("hides non-neighbor labels past the threshold even with a focus set", () => {
+      const manyEdges: SphereGraphEdge[] = [{ source: "n0", target: "n1", kind: "reference" }];
+      const { container } = render(
+        <SphereGraph nodes={manyNodes} edges={manyEdges} initialPinnedId="n0" />,
+      );
+      const labelTexts = Array.from(container.querySelectorAll(".sphere-graph__label")).map(
+        (el) => el.textContent,
+      );
+      expect(labelTexts).not.toContain("Node 2");
+    });
+  });
 });
