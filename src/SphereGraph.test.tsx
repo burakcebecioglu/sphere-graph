@@ -228,4 +228,70 @@ describe("SphereGraph", () => {
       expect(labels.length).toBeLessThan(75);
     });
   });
+
+  describe("dimmed-node opacity is theme-aware (SG-16)", () => {
+    function dimOpacityOf(container: HTMLElement, name: RegExp): string | null {
+      const g = within(container).getAllByRole("button", { name })[0]!;
+      return g.querySelector(".sphere-graph__node")?.getAttribute("opacity") ?? null;
+    }
+
+    it("uses the light-theme floor for non-neighbors when focused, by default", () => {
+      const { container } = render(
+        <SphereGraph nodes={nodes} edges={edges} theme="light" initialPinnedId="a" />,
+      );
+      // c is neither the focus (a) nor a's neighbor (b).
+      expect(dimOpacityOf(container, /Gamma/i)).toBe("0.2");
+    });
+
+    it("raises the dim floor for non-neighbors when focused on the dark theme", () => {
+      const { container } = render(
+        <SphereGraph nodes={nodes} edges={edges} theme="dark" initialPinnedId="a" />,
+      );
+      expect(dimOpacityOf(container, /Gamma/i)).toBe("0.5");
+    });
+
+    it("uses the light-theme floor for non-matches while searching, by default", () => {
+      // Searching for "Alpha" auto-jumps focus to node a (see "jumps to
+      // first search match"), making b a *neighbor* of a rather than a
+      // plain non-match — use c (Gamma), which is neither the match, the
+      // auto-focused node, nor its neighbor, to hit the search-dim branch.
+      const { container } = render(
+        <SphereGraph nodes={nodes} edges={edges} theme="light" searchQuery="Alpha" />,
+      );
+      expect(dimOpacityOf(container, /Gamma/i)).toBe("0.12");
+    });
+
+    it("raises the dim floor for non-matches while searching on the dark theme", () => {
+      const { container } = render(
+        <SphereGraph nodes={nodes} edges={edges} theme="dark" searchQuery="Alpha" />,
+      );
+      expect(dimOpacityOf(container, /Gamma/i)).toBe("0.3");
+    });
+
+    it("resolves theme=\"system\" to the dark floor via prefers-color-scheme", () => {
+      // vitest.setup.ts's global matchMedia stub always returns
+      // matches:false, so the "system" branch (the actual default theme)
+      // is otherwise never exercised — override it for this one test to
+      // simulate a dark-mode OS.
+      const originalMatchMedia = window.matchMedia;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-color-scheme: dark)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      try {
+        const { container } = render(
+          <SphereGraph nodes={nodes} edges={edges} theme="system" initialPinnedId="a" />,
+        );
+        expect(dimOpacityOf(container, /Gamma/i)).toBe("0.5");
+      } finally {
+        window.matchMedia = originalMatchMedia;
+      }
+    });
+  });
 });
